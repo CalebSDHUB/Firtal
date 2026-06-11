@@ -37,8 +37,7 @@ git push → main branch
 ┌─────────────────────┐   ┌─────────────────────┐
 │  Sliplane – Backend │   │ Sliplane – Frontend  │
 │                     │   │                      │
-│  Clone repo         │   │  Clone repo          │
-│  Build Dockerfile   │   │  Build Dockerfile    │
+│  Pull image         │   │  Pull image          │
 │  Inject secrets     │   │  Inject env vars     │
 │  Start port 8000    │   │  Start port 3000     │
 │  Health check       │   │                      │

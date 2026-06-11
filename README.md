@@ -3,6 +3,8 @@
 > Proof-of-concept for secure AI agent deployment with guardrails.
 > Stack: FastAPI · Uvicorn · Anthropic Claude · Supabase · Docker · GitHub Actions · Sliplane
 
+**[Try the live demo →](https://firtal-fxj1pf.sliplane.app/)**
+
 ---
 
 ## What is this?

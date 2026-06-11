@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     supabase_service_role_key: str
 
     # Agent model
-    anthropic_model: str = "claude-haiku-4-5"
+    anthropic_model: str = "claude-sonnet-4-6"
 
     # Agent guardrails
     max_tokens_per_response: int = 512

@@ -24,28 +24,30 @@ Developer
 git push → main branch
     │
     ▼
-┌─────────────────────────────┐
-│     GitHub Actions (CI)     │
-│                             │
-│  1. pytest (unit tests)     │
-│  2. Build Docker image      │
-│  3. Push → ghcr.io          │
-│  4. Trigger Sliplane deploy │
-└─────────────┬───────────────┘
-              │  webhook
-              ▼
-┌─────────────────────────────┐
-│         Sliplane            │
-│                             │
-│  Pull image from ghcr.io    │
-│  Inject env vars (secrets)  │
-│  Start container port 8000  │
-│  Health check /health       │
-└─────────────┬───────────────┘
-              │
-              ▼
 ┌─────────────────────────────────────────────────┐
-│              Runtime (container)                │
+│               GitHub Actions (CI)               │
+│                                                 │
+│  1. pytest (unit tests)                         │
+│  2. Build backend + frontend Docker images      │
+│  3. Push both → ghcr.io                         │
+│  4. Trigger Sliplane deploy (backend + frontend)│
+└──────────┬──────────────────────────┬───────────┘
+           │ webhook (backend)        │ webhook (frontend)
+           ▼                          ▼
+┌─────────────────────┐   ┌─────────────────────┐
+│  Sliplane – Backend │   │ Sliplane – Frontend  │
+│                     │   │                      │
+│  Clone repo         │   │  Clone repo          │
+│  Build Dockerfile   │   │  Build Dockerfile    │
+│  Inject secrets     │   │  Inject env vars     │
+│  Start port 8000    │   │  Start port 3000     │
+│  Health check       │   │                      │
+│  /health            │   │                      │
+└──────────┬──────────┘   └──────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────────────────────┐
+│           Backend Runtime (container)           │
 │                                                 │
 │  POST /chat                                     │
 │    │                                            │
@@ -58,6 +60,8 @@ git push → main branch
 │    └─ Log to Supabase → return response        │
 └─────────────────────────────────────────────────┘
 ```
+
+> Backend health check: https://firtal.sliplane.app/health
 
 ---
 

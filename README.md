@@ -34,14 +34,14 @@ git push → main branch
 └─────────────┬───────────────┘
               │  webhook
               ▼
-┌─────────────────────────────┐
-│         Sliplane            │
-│                             │
-│  Pull image from ghcr.io    │
-│  Inject env vars (secrets)  │
-│  Start container port 8000  │
-│  Health check /health       │
-└─────────────┬───────────────┘
+┌─────────────────────────────────────────┐
+│               Sliplane                  │
+│                                         │
+│  Pull image from ghcr.io               │
+│  Inject env vars (secrets)             │
+│  Start container port 8000             │
+│  Health check https://firtal.sliplane.app/health  │
+└─────────────────────┬───────────────────┘
               │
               ▼
 ┌─────────────────────────────────────────────────┐

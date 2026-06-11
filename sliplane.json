@@ -1,0 +1,15 @@
+{
+  "name": "firetal-agent",
+  "dockerfile": "Dockerfile",
+  "port": 8000,
+  "healthCheck": "/health",
+  "environmentVariables": [
+    "ANTHROPIC_API_KEY",
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "MAX_TOKENS_PER_RESPONSE",
+    "MAX_TURNS_PER_CONVERSATION",
+    "MAX_REQUESTS_PER_MINUTE",
+    "ENVIRONMENT"
+  ]
+}

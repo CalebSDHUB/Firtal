@@ -12,8 +12,19 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _clean_supabase_url(url: str) -> str:
+    """Accept both the bare project URL and the full REST URL that Supabase
+    sometimes shows in the dashboard (e.g. https://xxx.supabase.co/rest/v1/).
+    supabase-py only wants the bare project root."""
+    for suffix in ("/rest/v1/", "/rest/v1"):
+        if url.endswith(suffix):
+            url = url[: -len(suffix)]
+    return url.rstrip("/")
+
+
 def get_supabase() -> Client:
-    return create_client(settings.supabase_url, settings.supabase_service_role_key)
+    url = _clean_supabase_url(settings.supabase_url)
+    return create_client(url, settings.supabase_service_role_key)
 
 
 def get_conversation_turn_count(conversation_id: str) -> int:

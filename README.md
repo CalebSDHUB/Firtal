@@ -1,19 +1,19 @@
 # Firetal Internal Assistant – AI Agent PoC
 
-> Proof-of-concept for sikker AI-agent deployment med guardrails.
+> Proof-of-concept for secure AI agent deployment with guardrails.
 > Stack: FastAPI · Uvicorn · Anthropic Claude · Supabase · Docker · GitHub Actions · Sliplane
 
 ---
 
-## Hvad er det?
+## What is this?
 
-En simpel intern AI-assistent der hjælper Firetal-medarbejdere med at navigere interne systemer, processer og værktøjer (Supabase, GitHub, Sliplane, BigQuery osv.).
+A simple internal AI assistant that helps Firetal employees navigate internal systems, processes and tools (Supabase, GitHub, Sliplane, BigQuery, etc.).
 
-Formålet med dette PoC er **ikke** agentens domæne – men strukturen rundt om den: deployment, secrets, guardrails og et fundament andre builders kan stå på.
+The purpose of this PoC is **not** the agent's domain – but the structure around it: deployment, secrets management, guardrails, and a foundation other builders can stand on.
 
 ---
 
-## Flow-diagram: commit → deploy → runtime
+## Flow diagram: commit → deploy → runtime
 
 ```
 Developer
@@ -59,95 +59,95 @@ git push → main branch
 
 ---
 
-## Guardrail-valg: tre lag
+## Guardrail choices: three layers
 
-Jeg valgte at implementere **tre komplementære guardrails** fremfor én, fordi de beskytter på hvert sit niveau:
+I chose to implement **three complementary guardrails** rather than one, because they each protect at a different level:
 
-| Guardrail | Implementering | Beskytter mod |
-|-----------|---------------|---------------|
-| **Rate limiting** | In-memory sliding window, 20 req/min/IP | API-misbrug, uventet load, cost spike |
-| **Max tokens** | `max_tokens=512` i Claude API-kaldet | Runaway output, uventet token-forbrug |
-| **Max turns** | Tæller gemte turns i Supabase per `conversation_id` | Uendelige samtale-loops |
+| Guardrail | Implementation | Protects against |
+|-----------|---------------|-----------------|
+| **Rate limiting** | In-memory sliding window, 20 req/min/IP | API abuse, unexpected load, cost spikes |
+| **Max tokens** | `max_tokens=512` in the Claude API call | Runaway output, unexpected token usage |
+| **Max turns** | Counts stored turns in Supabase per `conversation_id` | Infinite conversation loops |
 
-**Primær guardrail: Rate limiting** – fordi det er den mest praktiske første forsvarslinje på tværs af alle agenter, uanset domæne. Kostnader skalerer lineært med requests; rate limiting er den enkle knap der holder budgettet i check.
+**Primary guardrail: Rate limiting** – because it is the most practical first line of defence across all agents, regardless of domain. Costs scale linearly with requests; rate limiting is the simple dial that keeps the budget in check.
 
 ---
 
-## Hvordan forhindrer vi en uendelig loop mod Claude?
+## How do we prevent an infinite loop against Claude?
 
-En agent kan ende i en loop hvis den:
-1. Kalder et tool, læser svaret og kalder næste tool i en automatisk kæde – uden stop-betingelse
-2. Re-prompter sig selv baseret på sit eget output
+An agent can end up in a loop if it:
+1. Calls a tool, reads the response and calls the next tool in an automatic chain – without a stop condition
+2. Re-prompts itself based on its own output
 
-Vores løsning bruger **tre lag**:
+Our solution uses **three layers**:
 
 ```
-1. max_turns per conversation (Supabase-tæller)
-   → HTTP 400 efter 10 turns – samtalen er død, start en ny
+1. max_turns per conversation (Supabase counter)
+   → HTTP 400 after 10 turns – conversation is dead, start a new one
 
-2. max_tokens per response (Claude API-parameter)
-   → Hård grænse på output-tokens – ingen runaway generation
+2. max_tokens per response (Claude API parameter)
+   → Hard limit on output tokens – no runaway generation
 
-3. Single-shot arkitektur
-   → Agenten kaldes præcis én gang per bruger-turn
-   → Ingen tool-loop, ingen auto-retry, ingen re-entry
-   → run_agent() returnerer (reply, tokens) – det var det
+3. Single-shot architecture
+   → The agent is called exactly once per user turn
+   → No tool loop, no auto-retry, no re-entry
+   → run_agent() returns (reply, tokens) – that's it
 ```
 
-Koden i `app/agent.py`:
+Code in `app/agent.py`:
 ```python
 response = client.messages.create(
     model="claude-3-5-haiku-20241022",
-    max_tokens=settings.max_tokens_per_response,  # hård grænse
+    max_tokens=settings.max_tokens_per_response,  # hard limit
     system=SYSTEM_PROMPT,
-    messages=messages,  # endelig liste – ingen loop
+    messages=messages,  # finite list – no loop
 )
-# Returner direkte – ingen while-løkke, ingen tool-dispatch
+# Return directly – no while-loop, no tool-dispatch
 reply = response.content[0].text
 ```
 
-Hvis vi tilføjer tool-use senere: max tool-kald pr. turn konfigureres eksplicit, og `check_max_turns()` gælder stadig som sikkerhedsnet.
+If we add tool-use later: max tool calls per turn are configured explicitly, and `check_max_turns()` still applies as a safety net.
 
 ---
 
-## Sådan deployer en ikke-teknisk builder en ny agent
+## How a non-technical builder deploys a new agent
 
-1. **Opret et nyt repo** – brug dette repo som template (GitHub → "Use this template")
+1. **Create a new repo** – use this repo as a template (GitHub → "Use this template")
 
-2. **Sæt secrets op** (én gang, i GitHub og Sliplane):
-   - GitHub: `Settings → Secrets → Actions` → tilføj de tre nøgler fra `.env.example`
-   - Sliplane: `Environment Variables` i dit service-panel
+2. **Set up secrets** (once, in GitHub and Sliplane):
+   - GitHub: `Settings → Secrets → Actions` → add the three keys from `.env.example`
+   - Sliplane: `Environment Variables` in your service panel
 
-3. **Opdater system-prompten** i `app/agent.py` – det er det eneste der definerer hvad agenten *gør*
+3. **Update the system prompt** in `app/agent.py` – that is the only thing that defines what the agent *does*
 
-4. **Push til main** – GitHub Actions kører tests og Sliplane deployer automatisk
+4. **Push to main** – GitHub Actions runs tests and Sliplane deploys automatically
 
-5. **Kend din URL** – Sliplane giver en offentlig URL (`https://firetal-agent.sliplane.app/chat`)
+5. **Know your URL** – Sliplane provides a public URL (`https://firetal-agent.sliplane.app/chat`)
 
-Det er det. Ingen terminal, ingen Docker-kommandoer, ingen cloud-konfiguration.
+That's it. No terminal, no Docker commands, no cloud configuration.
 
-> **Fremtidigt:** Systemprompten kan flyttes til `agent_configs`-tabellen i Supabase, så builders kan ændre agentens adfærd direkte fra et dashboard – uden at røre kode overhovedet.
+> **Future improvement:** The system prompt can be moved to the `agent_configs` table in Supabase, so builders can change the agent's behaviour directly from a dashboard – without touching code at all.
 
 ---
 
-## Lokal udvikling
+## Local development
 
 ```bash
-# 1. Klon og konfigurer
-git clone https://github.com/<org>/firetal-agent
-cd firetal-agent
+# 1. Clone and configure
+git clone https://github.com/CalebSDHUB/Firtal
+cd Firtal
 cp .env.example .env
-# Udfyld .env med dine nøgler
+# Fill in .env with your keys
 
-# 2. Start med Docker Compose
+# 2. Start with Docker Compose
 docker compose up --build
 
-# 3. Test agenten
+# 3. Test the agent
 curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Hvordan deployer jeg en ny app?"}'
+  -d '{"message": "How do I deploy a new app?"}'
 
-# 4. Seed databasen med sample data
+# 4. Seed the database with sample data
 python scripts/seed_db.py
 ```
 
@@ -155,48 +155,48 @@ API docs: http://localhost:8000/docs
 
 ---
 
-## Supabase opsætning
+## Supabase setup
 
 ```sql
--- Kør én gang i Supabase SQL Editor
--- Filen ligger i supabase/schema.sql
+-- Run once in the Supabase SQL Editor
+-- File is located at supabase/schema.sql
 ```
 
-Tabeller:
-- `conversations` – logger alle agent-interaktioner (audit trail)
-- `agent_configs` – konfiguration per agent (kan ændres uden redeploy)
-- `knowledge_base` – FAQ-indhold agenten kan referere til
+Tables:
+- `conversations` – logs all agent interactions (audit trail)
+- `agent_configs` – configuration per agent (can be changed without redeployment)
+- `knowledge_base` – FAQ content the agent can reference
 
 ---
 
-## Secrets-håndtering
+## Secrets management
 
 ```
-Lokal udvikling:  .env fil (i .gitignore – aldrig committed)
-CI/CD:            GitHub Secrets (krypteret, injektet som env vars)
-Runtime:          Sliplane Environment Variables (aldrig synlige i logs)
+Local development:  .env file (in .gitignore – never committed)
+CI/CD:              GitHub Secrets (encrypted, injected as env vars)
+Runtime:            Sliplane Environment Variables (never visible in logs)
 ```
 
-Secrets eksponeres **aldrig** i kode, git-historik eller container-images.
-`pydantic-settings` validerer at alle nødvendige secrets er til stede ved opstart – containeren crasher med en klar fejlbesked hvis noget mangler, fremfor at starte med ugyldig konfiguration.
+Secrets are **never** exposed in code, git history or container images.
+`pydantic-settings` validates that all required secrets are present at startup – the container crashes with a clear error message if anything is missing, rather than starting with invalid configuration.
 
 ---
 
-## Projektstruktur
+## Project structure
 
 ```
 firetal-agent/
 ├── app/
 │   ├── main.py          # FastAPI app + endpoints
-│   ├── agent.py         # Claude-integration
-│   ├── guardrails.py    # Rate limit, max turns, input-validering
+│   ├── agent.py         # Claude integration
+│   ├── guardrails.py    # Rate limit, max turns, input validation
 │   ├── database.py      # Supabase queries
-│   ├── models.py        # Pydantic request/response modeller
-│   └── config.py        # Settings fra env vars
+│   ├── models.py        # Pydantic request/response models
+│   └── config.py        # Settings from env vars
 ├── scripts/
-│   └── seed_db.py       # Fylder databasen med sample data
+│   └── seed_db.py       # Seeds the database with sample data
 ├── supabase/
-│   └── schema.sql       # Database-schema
+│   └── schema.sql       # Database schema
 ├── tests/
 │   └── test_guardrails.py
 ├── .github/workflows/
@@ -210,19 +210,19 @@ firetal-agent/
 
 ---
 
-## Hvis dette skulle i produktion
+## If this were going to production
 
-**Hvad vi ville tilføje:**
+**What we would add:**
 
-- [ ] **Autentificering** – JWT eller Supabase Auth på `/chat` endpoint
-- [ ] **Observability** – strukturerede logs til Datadog/Loki + token-usage dashboard
-- [ ] **Persistent rate limiting** – Supabase/Redis fremfor in-memory (overlever container-restart)
-- [ ] **Content moderation** – filter på input/output (Anthropic Guardrails API eller custom)
+- [ ] **Authentication** – JWT or Supabase Auth on the `/chat` endpoint
+- [ ] **Observability** – structured logs to Datadog/Loki + token usage dashboard
+- [ ] **Persistent rate limiting** – Supabase/Redis instead of in-memory (survives container restarts)
+- [ ] **Content moderation** – filter on input/output (Anthropic Guardrails API or custom)
 - [ ] **Async agent** – `asyncio` + `httpx` for concurrent requests
-- [ ] **Multi-agent routing** – én gateway der router til specialiserede agenter pr. domæne
-- [ ] **Prompt versioning** – system-prompts i `agent_configs`-tabellen med versionsnummer
-- [ ] **Cost alerts** – Supabase Function der sender alarm hvis daglige tokens overstiger budget
-- [ ] **Rollback** – Sliplane understøtter deploy af tidligere image-tags ved fejl
+- [ ] **Multi-agent routing** – one gateway that routes to specialised agents per domain
+- [ ] **Prompt versioning** – system prompts in the `agent_configs` table with version numbers
+- [ ] **Cost alerts** – Supabase Function that sends an alert if daily tokens exceed budget
+- [ ] **Rollback** – Sliplane supports deploying previous image tags on failure
 
-**Skalering:**
-Sliplane understøtter auto-scaling på container-niveau. Stateless design (ingen lokal state, alt i Supabase) betyder at vi bare spinner flere instanser op bag en load balancer.
+**Scaling:**
+Sliplane supports auto-scaling at the container level. Stateless design (no local state, everything in Supabase) means we simply spin up more instances behind a load balancer.

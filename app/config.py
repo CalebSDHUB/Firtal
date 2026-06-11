@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     supabase_url: str
     supabase_service_role_key: str
 
+    # Agent model
+    anthropic_model: str = "claude-3-haiku-20240307"
+
     # Agent guardrails
     max_tokens_per_response: int = 512
     max_turns_per_conversation: int = 10

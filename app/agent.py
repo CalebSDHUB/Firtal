@@ -51,7 +51,7 @@ def run_agent(conversation_id: str, user_message: str) -> tuple[str, int]:
     messages = build_messages(history, user_message)
 
     response = client.messages.create(
-        model="claude-3-5-haiku-20241022",
+        model=settings.anthropic_model,
         max_tokens=settings.max_tokens_per_response,
         system=SYSTEM_PROMPT,
         messages=messages,
